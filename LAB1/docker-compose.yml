@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  lab1-http-server: # Name of your container
+    image: nicug/server-pr-lab1:latest # The Docker image to use
+    ports:
+      - "8000:8000" # Corrected: Removed extra space
+    environment: # Set environment variables
+      - PORT=8000
