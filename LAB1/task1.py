@@ -117,7 +117,7 @@ def serialize_to_xml(data):
     return xml
 
 
-# Step 9: Custom serialization (Example)
+# Step 9: Custom serialization 
 def custom_serialize(data):
     custom_str = "PRODUCTS|"
     for product in data['products']:
