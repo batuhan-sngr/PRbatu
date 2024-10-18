@@ -46,15 +46,26 @@ def extract_products(html_content):
     
     return products
 
-
-# Step 4: Scrape additional product details
+# Step 4: Scrape additional product details (sizes)
 def scrape_additional_details(product):
     html_content = get_html(product['link'])
     soup = BeautifulSoup(html_content, 'html.parser')
-    # Example of scraping product color from product details page (adjust as needed)
-    color_tag = soup.select_one('.product-color-class')  # Adjust selector for color if available
-    color = color_tag.text.strip() if color_tag else 'Unknown'  # Default to 'Unknown' if not found
-    product['color'] = color
+
+    # Find the specific product's size container
+    sizes = []
+    size_container = soup.select_one('.variations')  # This targets the table with sizes
+
+    if size_container:
+        # Extract size options from the dropdown or swatches
+        size_options = size_container.select('select[name="attribute_pa_marime"] option')
+        
+        for option in size_options:
+            if option['value']:  # Ensure the option has a value
+                sizes.append(option.text.strip())  # Get the text for each size
+
+    # Join the sizes into a string separated by commas or store as a list
+    product['sizes'] = ', '.join(sizes) if sizes else 'Unknown'
+
 
 # Step 5: Validate product data
 def validate_product(product):
@@ -117,14 +128,6 @@ def serialize_to_xml(data):
     return xml
 
 
-# Step 9: Custom serialization 
-def custom_serialize(data):
-    custom_str = "PRODUCTS|"
-    for product in data['products']:
-        custom_str += f"{product['name']}:{product['price']}:{product['color']}|"
-    custom_str += f"TOTAL:{data['total_price']}|TIME:{data['timestamp']}"
-    return custom_str
-
 # Step 10: Main function
 def main():
     url = "https://prosport.md/ro/product-category/ghete/"  # Example URL, adjust based on actual site structure
@@ -145,7 +148,7 @@ def main():
     json_data = serialize_to_json(processed_data)
     xml_data = serialize_to_xml(processed_data)
     
-    # Custom serialization (optional)
+    # Custom serialization using the scraped and processed data
     custom_data = custom_serialize(processed_data)
     
     # Output results
@@ -153,17 +156,70 @@ def main():
     print(json_data)
     print("\nXML Data:")
     print(xml_data)
+    print("\nCustom Serialized Data:")
+    print(custom_data)
+    
+    # Test custom deserialization with the scraped data
+    deserialized_data = custom_deserialize(custom_data)
+    print("\nCustom Deserialized Data:")
+    print(deserialized_data)
     
     # Step 11: Send data to localhost:8000/upload
     send_data_to_server(json_data, xml_data)
 
+def custom_serialize(data):
+    if isinstance(data, dict):
+        items = []
+        for key, value in data.items():
+            serialized_key = f"k:str({key})"
+            serialized_value = f"v:{custom_serialize(value)}"
+            items.append(f"{serialized_key}:{serialized_value}")
+        return f"D:{{{'; '.join(items)}}}"
+    elif isinstance(data, list):
+        items = [custom_serialize(item) for item in data]
+        return f"L:[{';'.join(items)};]"
+    elif isinstance(data, int):
+        return f"int({data})"
+    elif isinstance(data, str):
+        return f"str({data})"
+    else:
+        raise TypeError(f"Unsupported data type: {type(data)}")
+
+def custom_deserialize(serialized_data):
+    if serialized_data.startswith("D:{") and serialized_data.endswith("}"):
+        # Deserialize dictionary
+        items = serialized_data[3:-1].split("; ")
+        result_dict = {}
+        for item in items:
+            if item:
+                # Only split at the first occurrence of ":v:"
+                if ":v:" in item:
+                    key_part, value_part = item.split(":v:", 1)
+                    key = custom_deserialize(key_part[6:-1]) if key_part.startswith("k:str(") else key_part
+                    value = custom_deserialize(value_part)
+                    result_dict[key] = value
+        return result_dict
+    elif serialized_data.startswith("L:[") and serialized_data.endswith("];"):
+        # Deserialize list
+        items = serialized_data[3:-2].split(";")
+        return [custom_deserialize(item) for item in items if item]
+    elif serialized_data.startswith("int(") and serialized_data.endswith(")"):
+        return int(serialized_data[4:-1])
+    elif serialized_data.startswith("str(") and serialized_data.endswith(")"):
+        return serialized_data[4:-1]
+    else:
+        # Return the plain string if it does not match any serialization format
+        return serialized_data
+
+
+# Step 11: Sending serialized data to server
 def send_data_to_server(json_data, xml_data):
     url = "http://localhost:8000/upload"
     
     # Send the JSON data
     headers_json = {
     'Content-Type': 'application/json',
-    "Authorization": "Basic NDA0OjUwMw=="
+    "Authorization": "Basic NTAwOjIwNA=="
     }
 
     response_json = requests.post(url, data=json_data, headers=headers_json)
@@ -175,7 +231,7 @@ def send_data_to_server(json_data, xml_data):
     
     # Send the XML data
     headers_xml = {'Content-Type': 'application/xml',
-    "Authorization": "Basic NDA0OjUwMw==",
+    "Authorization": "Basic NTAwOjIwNA==",
     "Content-Length": str(len(xml_data.encode('utf-8')))
     }
     
