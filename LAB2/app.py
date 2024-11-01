@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, WebSocket, WebSocketDisconnect, Depends
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, Float, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from typing import Optional, List
 import json
 
