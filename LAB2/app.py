@@ -58,6 +58,7 @@ def create_product(product: ProductModel, db: Session = Depends(get_db)):
 
 @app.get("/products/", response_model=List[ProductInDB])
 def read_products(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    
     return db.query(Product).offset(skip).limit(limit).all()
 
 @app.get("/products/{product_id}", response_model=ProductInDB)
