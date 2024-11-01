@@ -1,14 +1,35 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Float, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import socket
-import json
 
 # Convert MDL to EUR
 MDL_TO_EUR = 0.052
 
 # Convert EUR to MDL
 EUR_TO_MDL = 1 / MDL_TO_EUR
+
+# Set up SQLAlchemy
+DATABASE_URL = "sqlite:///products.db"
+Base = declarative_base()
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Define the Product table
+class Product(Base):
+    __tablename__ = 'products'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    price = Column(Float, nullable=False)
+    link = Column(String, unique=True, nullable=False)
+    sizes = Column(String, nullable=True)  # Sizes stored as comma-separated values
+
+# Create the table in the SQLite database
+Base.metadata.create_all(engine)
 
 # Step 2: Function to make an HTTP GET request
 def get_html(url):
@@ -188,6 +209,9 @@ def main():
     deserialized_data = custom_deserialize(custom_data)
     print("\nCustom Deserialized Data:")
     print(deserialized_data)
+
+    # Save to database
+    save_to_database(products)
     
     # Step 11: Send data to localhost:8000/upload
     send_data_to_server(json_data, xml_data)
@@ -244,10 +268,11 @@ def send_data_to_server(json_data, xml_data):
     # Send the JSON data
     headers_json = {
     'Content-Type': 'application/json',
-    "Authorization": "Basic NTAwOjIwNA=="
+    "Authorization": "Basic NTAzOjQwOA==",
+    "Content-Length": str(len(json_data.encode('utf-8')))
     }
 
-    response_json = requests.post(url, data=json_data, headers=headers_json)
+    response_json = requests.post(url, data=json_data.encode('utf-8'), headers=headers_json)
     
     if response_json.status_code == 200:
         print("JSON data successfully sent!")
@@ -256,7 +281,7 @@ def send_data_to_server(json_data, xml_data):
     
     # Send the XML data
     headers_xml = {'Content-Type': 'application/xml',
-    "Authorization": "Basic NTAwOjIwNA==",
+    "Authorization": "Basic NTAzOjQwOA==",
     "Content-Length": str(len(xml_data.encode('utf-8')))
     }
     
@@ -266,6 +291,25 @@ def send_data_to_server(json_data, xml_data):
         print("XML data successfully sent!")
     else:
         print(f"Failed to send XML data, status code: {response_xml.status_code}")
+
+# Function to insert scraped data into the database
+def save_to_database(products):
+    db = SessionLocal()
+    for product_data in products:
+        # Check if the product already exists by its unique link
+        existing_product = db.query(Product).filter(Product.link == product_data['link']).first()
+        if not existing_product:
+            # Insert new product
+            new_product = Product(
+                name=product_data['name'],
+                price=product_data['price'],
+                link=product_data['link'],
+                sizes=product_data['sizes']
+            )
+            db.add(new_product)
+    db.commit()
+    db.close()
+    print("Data has been successfully saved to the database.")
 
 if __name__ == "__main__":
     main()

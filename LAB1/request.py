@@ -7,7 +7,7 @@ response = requests.get('http://localhost:8000/upload')
 
 
 # Combine username and password
-credentials = "500:204" #NTAwOjIwNA==
+credentials = "503:408" #NTAzOjQwOA==
 
 # Encode in Base64
 encoded_credentials = base64.b64encode(credentials.encode()).decode()
