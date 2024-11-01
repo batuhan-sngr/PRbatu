@@ -113,7 +113,32 @@ def fetch_using_socket(url):
 
 # Step 8: Manual serialization to JSON and XML
 def serialize_to_json(data):
-    return json.dumps(data, indent=4)
+    json_str = '{\n'
+    
+    # Serialize products list
+    json_str += '  "products": [\n'
+    for i, product in enumerate(data['products']):
+        json_str += '    {\n'
+        for key, value in product.items():
+            if isinstance(value, str):
+                json_str += f'      "{key}": "{value}",\n'
+            else:
+                json_str += f'      "{key}": {value},\n'
+        json_str = json_str.rstrip(',\n') + '\n'  # Remove trailing comma
+        json_str += '    }'
+        if i < len(data['products']) - 1:
+            json_str += ',\n'
+        else:
+            json_str += '\n'
+    json_str += '  ],\n'
+    
+    # Serialize total price and timestamp
+    json_str += f'  "total_price": {data["total_price"]},\n'
+    json_str += f'  "timestamp": "{data["timestamp"]}"\n'
+    
+    json_str += '}'
+    return json_str
+
 
 def serialize_to_xml(data):
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<products>\n'
